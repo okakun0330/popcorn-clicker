@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ポップコーンクリッカー 🍿</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #1a0a00;
+      font-family: 'Segoe UI', sans-serif;
+      color: #fff;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    #game {
+      display: flex;
+      height: 100vh;
+    }
+
+    /* ===== LEFT PANEL ===== */
+    #left-panel {
+      width: 300px;
+      flex-shrink: 0;
+      background: #2a1000;
+      border-right: 2px solid #ff6a00;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-y: auto;
+    }
+
+    #score-area {
+      text-align: center;
+      margin-bottom: 20px;
+      width: 100%;
+    }
+
+    #popcorn-count {
+      font-size: 2rem;
+      font-weight: bold;
+      color: #ffd700;
+      text-shadow: 0 0 10px #ff6a00;
+    }
+
+    #per-second {
+      font-size: 0.85rem;
+      color: #ffaa55;
+      margin-top: 4px;
+    }
+
+    /* ===== CENTER ===== */
+    #center {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+      background: radial-gradient(circle at center, #3a1a00 0%, #1a0a00 70%);
+    }
+
+    #popcorn-btn {
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 40% 35%, #fff8dc, #f4d03f 40%, #e67e22 100%);
+      border: 6px solid #ff6a00;
+      cursor: pointer;
+      font-size: 90px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 40px #ff6a0088, 0 8px 30px #0008;
+      transition: transform 0.08s, box-shadow 0.08s;
+      user-select: none;
+      position: relative;
+      z-index: 10;
+    }
+
+    #popcorn-btn:active {
+      transform: scale(0.93);
+      box-shadow: 0 0 20px #ff6a0055, 0 4px 15px #0006;
+    }
+
+    #click-label {
+      margin-top: 16px;
+      color: #ffaa55;
+      font-size: 0.9rem;
+    }
+
+    .float-text {
+      position: absolute;
+      pointer-events: none;
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: #ffd700;
+      text-shadow: 0 0 8px #ff6a00;
+      animation: floatUp 1s ease-out forwards;
+      z-index: 100;
+    }
+
+    @keyframes floatUp {
+      0%   { opacity: 1; transform: translateY(0) scale(1); }
+      100% { opacity: 0; transform: translateY(-80px) scale(1.3); }
+    }
+
+    .kernel {
+      position: absolute;
+      font-size: 1.6rem;
+      pointer-events: none;
+      animation: popKernel var(--dur) ease-out forwards;
+      z-index: 50;
+    }
+
+    @keyframes popKernel {
+      0%   { opacity: 1; transform: translate(0,0) scale(1) rotate(0deg); }
+      100% { opacity: 0; transform: translate(var(--tx), var(--ty)) scale(0.5) rotate(var(--rot)); }
+    }
+
+    /* ===== RIGHT PANEL ===== */
+    #right-panel {
+      width: 320px;
+      flex-shrink: 0;
+      background: #2a1000;
+      border-left: 2px solid #ff6a00;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .panel-title {
+      font-size: 1rem;
+      font-weight: bold;
+      color: #ff6a00;
+      padding: 12px 16px;
+      border-bottom: 1px solid #ff6a0066;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* ===== UPGRADES ===== */
+    #upgrades-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .upgrade-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      margin-bottom: 6px;
+      border-radius: 8px;
+      border: 1.5px solid #ff6a0066;
+      background: #3a1500;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+      text-align: left;
+    }
+
+    .upgrade-btn:hover:not(:disabled) {
+      background: #5a2500;
+      border-color: #ff6a00;
+    }
+
+    .upgrade-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .upgrade-btn.purchased {
+      border-color: #ffd700;
+      background: #4a2800;
+      opacity: 0.6;
+    }
+
+    .upgrade-icon { font-size: 1.8rem; flex-shrink: 0; }
+
+    .upgrade-info { flex: 1; min-width: 0; }
+    .upgrade-name { font-size: 0.9rem; font-weight: bold; color: #ffd700; }
+    .upgrade-desc { font-size: 0.72rem; color: #ffaa55; margin-top: 2px; }
+
+    .upgrade-cost {
+      font-size: 0.82rem;
+      font-weight: bold;
+      color: #ffd700;
+      white-space: nowrap;
+    }
+
+    /* ===== BUILDINGS ===== */
+    #buildings-list {
+      overflow-y: auto;
+      padding: 8px;
+      max-height: 50vh;
+    }
+
+    .building-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      margin-bottom: 6px;
+      border-radius: 8px;
+      border: 1.5px solid #ff6a0066;
+      background: #3a1500;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+      text-align: left;
+    }
+
+    .building-btn:hover:not(:disabled) {
+      background: #5a2500;
+      border-color: #ff6a00;
+    }
+
+    .building-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .building-icon { font-size: 1.8rem; flex-shrink: 0; }
+    .building-info { flex: 1; min-width: 0; }
+    .building-name { font-size: 0.9rem; font-weight: bold; color: #ffd700; }
+    .building-desc { font-size: 0.72rem; color: #ffaa55; margin-top: 2px; }
+    .building-owned { font-size: 0.75rem; color: #aaa; margin-top: 1px; }
+    .building-cost { font-size: 0.82rem; font-weight: bold; color: #ffd700; white-space: nowrap; }
+
+    /* ===== SCROLLBAR ===== */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #1a0a00; }
+    ::-webkit-scrollbar-thumb { background: #ff6a00; border-radius: 3px; }
+
+    /* ===== MILESTONES ===== */
+    #milestone-toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: linear-gradient(135deg, #ff6a00, #ffd700);
+      color: #1a0a00;
+      font-weight: bold;
+      font-size: 1rem;
+      padding: 12px 24px;
+      border-radius: 30px;
+      box-shadow: 0 4px 20px #0008;
+      transition: transform 0.4s ease;
+      z-index: 999;
+      white-space: nowrap;
+    }
+
+    #milestone-toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+<div id="game">
+
+  <!-- LEFT: score + upgrades -->
+  <div id="left-panel">
+    <div id="score-area">
+      <div id="popcorn-count">🍿 0</div>
+      <div id="per-second">毎秒: 0 個</div>
+      <div style="font-size:0.8rem;color:#aaa;margin-top:4px;">クリック毎: <span id="per-click">1</span> 個</div>
+    </div>
+    <div class="panel-title" style="width:100%;border-top:1px solid #ff6a0066;">🌟 アップグレード</div>
+    <div id="upgrades-list"></div>
+  </div>
+
+  <!-- CENTER: main clicker -->
+  <div id="center">
+    <div id="popcorn-btn">🍿</div>
+    <div id="click-label">クリックしてポップコーンを弾かせよう！</div>
+  </div>
+
+  <!-- RIGHT: buildings -->
+  <div id="right-panel">
+    <div class="panel-title">🏭 生産施設</div>
+    <div id="buildings-list"></div>
+  </div>
+
+</div>
+
+<div id="milestone-toast"></div>
+
+<script>
+// ===== STATE =====
+const state = {
+  popcorn: 0,
+  total: 0,
+  clickPower: 1,
+  perSecond: 0,
+  buildings: {},
+  upgrades: {},
+};
+
+// ===== BUILDINGS =====
+const BUILDINGS = [
+  { id: 'pot',       icon: '🫕', name: '鍋',           desc: '古い鍋でコトコト…',       baseCost: 15,  baseRate: 0.1  },
+  { id: 'microwave', icon: '📟', name: 'レンジ',        desc: '電子レンジでチン！',        baseCost: 100, baseRate: 0.5  },
+  { id: 'cart',      icon: '🛒', name: '屋台',          desc: '公園の隅で営業中',         baseCost: 500, baseRate: 2    },
+  { id: 'factory',   icon: '🏭', name: '工場',          desc: 'フル稼働の製造ライン',      baseCost: 2500, baseRate: 8   },
+  { id: 'farm',      icon: '🌽', name: 'とうもろこし農場', desc: '原材料を自給自足',         baseCost: 10000, baseRate: 25  },
+  { id: 'lab',       icon: '🔬', name: '研究所',         desc: '遺伝子レベルで最適化',      baseCost: 50000, baseRate: 100 },
+  { id: 'portal',    icon: '🌀', name: 'ポップコーン次元', desc: '別次元からポップコーンを召喚', baseCost: 250000, baseRate: 500 },
+];
+
+// ===== UPGRADES =====
+const UPGRADES = [
+  { id: 'better_fingers', icon: '👆', name: '指の強化',      desc: 'クリック×2',           cost: 50,    apply: s => { s.clickPower *= 2; } },
+  { id: 'oily_hands',     icon: '🫙', name: 'バターの手',     desc: 'クリック×2',           cost: 200,   apply: s => { s.clickPower *= 2; } },
+  { id: 'golden_finger',  icon: '✨', name: '黄金の指',       desc: 'クリック×5',           cost: 2000,  apply: s => { s.clickPower *= 5; } },
+  { id: 'auto_tap',       icon: '🤖', name: 'オートタップ',    desc: '秒間生産+10%',         cost: 500,   apply: s => { s.perSecondBonus = (s.perSecondBonus||0) + 0.1; } },
+  { id: 'spice',          icon: '🌶️', name: 'スパイスミックス', desc: '秒間生産+25%',         cost: 3000,  apply: s => { s.perSecondBonus = (s.perSecondBonus||0) + 0.25; } },
+  { id: 'caramel',        icon: '🍯', name: 'キャラメルコーティング', desc: '秒間生産+50%',    cost: 15000, apply: s => { s.perSecondBonus = (s.perSecondBonus||0) + 0.5; } },
+  { id: 'quantum_pop',    icon: '⚛️', name: '量子ポップ',     desc: 'クリック×10 & 秒間×2', cost: 100000, apply: s => { s.clickPower *= 10; s.perSecondBonus = (s.perSecondBonus||0) + 1; } },
+];
+
+// ===== MILESTONE =====
+const MILESTONES = [
+  { count: 100,    msg: '100個達成！いい調子！' },
+  { count: 1000,   msg: '1,000個！ポップコーン職人' },
+  { count: 10000,  msg: '1万個！工場を建てよう' },
+  { count: 100000, msg: '10万個！ポップコーン王' },
+  { count: 1e6,    msg: '100万個！レジェンド！' },
+  { count: 1e9,    msg: '10億個！神話の領域…' },
+];
+const reachedMilestones = new Set();
+
+// ===== DOM REFS =====
+const countEl   = document.getElementById('popcorn-count');
+const psEl      = document.getElementById('per-second');
+const pcEl      = document.getElementById('per-click');
+const btn       = document.getElementById('popcorn-btn');
+const center    = document.getElementById('center');
+const toastEl   = document.getElementById('milestone-toast');
+const upgradesEl = document.getElementById('upgrades-list');
+const buildingsEl = document.getElementById('buildings-list');
+
+// ===== HELPERS =====
+function fmt(n) {
+  if (n >= 1e12) return (n/1e12).toFixed(2) + '兆';
+  if (n >= 1e8)  return (n/1e8).toFixed(2) + '億';
+  if (n >= 1e4)  return (n/1e4).toFixed(2) + '万';
+  return Math.floor(n).toLocaleString();
+}
+
+function buildingCost(id) {
+  const b = BUILDINGS.find(x => x.id === id);
+  const owned = state.buildings[id] || 0;
+  return Math.ceil(b.baseCost * Math.pow(1.15, owned));
+}
+
+function calcPerSecond() {
+  let total = 0;
+  for (const b of BUILDINGS) {
+    total += (state.buildings[b.id] || 0) * b.baseRate;
+  }
+  const bonus = state.perSecondBonus || 0;
+  return total * (1 + bonus);
+}
+
+// ===== RENDER =====
+function renderScore() {
+  state.perSecond = calcPerSecond();
+  countEl.textContent = '🍿 ' + fmt(state.popcorn);
+  psEl.textContent = '毎秒: ' + fmt(state.perSecond) + ' 個';
+  pcEl.textContent = fmt(state.clickPower);
+}
+
+function renderUpgrades() {
+  upgradesEl.innerHTML = '';
+  for (const u of UPGRADES) {
+    const purchased = !!state.upgrades[u.id];
+    const canAfford = state.popcorn >= u.cost;
+    const btn2 = document.createElement('button');
+    btn2.className = 'upgrade-btn' + (purchased ? ' purchased' : '');
+    btn2.disabled = purchased || !canAfford;
+    btn2.innerHTML = `
+      <span class="upgrade-icon">${u.icon}</span>
+      <span class="upgrade-info">
+        <div class="upgrade-name">${u.name}</div>
+        <div class="upgrade-desc">${u.desc}</div>
+      </span>
+      <span class="upgrade-cost">${purchased ? '✓' : '🍿' + fmt(u.cost)}</span>
+    `;
+    if (!purchased) {
+      btn2.addEventListener('click', () => buyUpgrade(u.id));
+    }
+    upgradesEl.appendChild(btn2);
+  }
+}
+
+function renderBuildings() {
+  buildingsEl.innerHTML = '';
+  for (const b of BUILDINGS) {
+    const cost = buildingCost(b.id);
+    const owned = state.buildings[b.id] || 0;
+    const canAfford = state.popcorn >= cost;
+    const btn2 = document.createElement('button');
+    btn2.className = 'building-btn';
+    btn2.disabled = !canAfford;
+    btn2.innerHTML = `
+      <span class="building-icon">${b.icon}</span>
+      <span class="building-info">
+        <div class="building-name">${b.name}</div>
+        <div class="building-desc">${b.desc}</div>
+        <div class="building-owned">所有: ${owned}個 | 秒間: ${fmt(b.baseRate)} 個</div>
+      </span>
+      <span class="building-cost">🍿${fmt(cost)}</span>
+    `;
+    btn2.addEventListener('click', () => buyBuilding(b.id));
+    buildingsEl.appendChild(btn2);
+  }
+}
+
+function render() {
+  renderScore();
+  renderUpgrades();
+  renderBuildings();
+}
+
+// ===== ACTIONS =====
+function buyUpgrade(id) {
+  const u = UPGRADES.find(x => x.id === id);
+  if (!u || state.upgrades[id] || state.popcorn < u.cost) return;
+  state.popcorn -= u.cost;
+  state.upgrades[id] = true;
+  u.apply(state);
+  render();
+}
+
+function buyBuilding(id) {
+  const cost = buildingCost(id);
+  if (state.popcorn < cost) return;
+  state.popcorn -= cost;
+  state.buildings[id] = (state.buildings[id] || 0) + 1;
+  render();
+}
+
+// ===== CLICK FX =====
+const EMOJIS = ['🍿','🌽','✨','💥','🔥','⭐'];
+
+function spawnKernels(cx, cy) {
+  const count = Math.min(3 + Math.floor(Math.log10(state.clickPower + 1)), 8);
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement('div');
+    el.className = 'kernel';
+    el.textContent = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+    const angle = (Math.PI * 2 * i / count) + (Math.random() - 0.5) * 0.8;
+    const dist = 60 + Math.random() * 80;
+    const tx = Math.cos(angle) * dist;
+    const ty = Math.sin(angle) * dist - 30;
+    const dur = (0.5 + Math.random() * 0.4).toFixed(2) + 's';
+    const rot = (Math.random() * 360) + 'deg';
+    el.style.cssText = `left:${cx}px;top:${cy}px;--tx:${tx}px;--ty:${ty}px;--dur:${dur};--rot:${rot}`;
+    center.appendChild(el);
+    setTimeout(() => el.remove(), 900);
+  }
+}
+
+function spawnFloatText(cx, cy, amount) {
+  const el = document.createElement('div');
+  el.className = 'float-text';
+  el.textContent = '+' + fmt(amount);
+  el.style.left = (cx - 20) + 'px';
+  el.style.top  = (cy - 20) + 'px';
+  center.appendChild(el);
+  setTimeout(() => el.remove(), 1000);
+}
+
+btn.addEventListener('click', e => {
+  const gained = state.clickPower;
+  state.popcorn += gained;
+  state.total   += gained;
+  checkMilestones();
+  render();
+
+  const rect = center.getBoundingClientRect();
+  const cx = e.clientX - rect.left;
+  const cy = e.clientY - rect.top;
+  spawnKernels(cx, cy);
+  spawnFloatText(cx, cy, gained);
+});
+
+// ===== MILESTONES =====
+function checkMilestones() {
+  for (const m of MILESTONES) {
+    if (!reachedMilestones.has(m.count) && state.total >= m.count) {
+      reachedMilestones.add(m.count);
+      showToast('🎉 ' + m.msg);
+    }
+  }
+}
+
+let toastTimer;
+function showToast(msg) {
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 3000);
+}
+
+// ===== TICK =====
+let last = performance.now();
+function tick(now) {
+  const dt = (now - last) / 1000;
+  last = now;
+  const gained = calcPerSecond() * dt;
+  if (gained > 0) {
+    state.popcorn += gained;
+    state.total   += gained;
+    checkMilestones();
+    renderScore();
+    // re-render buttons less often
+  }
+  requestAnimationFrame(tick);
+}
+
+// Render buildings/upgrades on a slower cadence
+setInterval(render, 500);
+
+// ===== INIT =====
+render();
+requestAnimationFrame(tick);
+</script>
+</body>
+</html>
